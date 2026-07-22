@@ -172,4 +172,7 @@ class MathQuestionsRepository {
       correctIndex: 2,
     ),
   ];
+
+  // Agregado para soportar el nivel 2 usando las mismas preguntas por ahora
+  static List<MathQuestion> level2 = List.from(level1);
 }

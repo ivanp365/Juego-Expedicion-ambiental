@@ -1,15 +1,27 @@
 import 'waste_item.dart';
 
-enum ClasificatonPhase { intro, levels, countdown, sorting, math, results }
+enum ClasificatonPhase {
+  intro,
+  levels,
+  cover,
+  countdown,
+  sorting,
+  math,
+  results,
+}
 
 enum LevelFlow { cover, playing, questions, finished }
 
 /// Etapas del reto matemático
-enum MathCardStage {
-  hidden, // No hay tarjeta
-  preview, // Se muestra la tarjeta completa
-  question, // Se muestran las respuestas
-  feedback, // Correcto / Incorrecto
+enum MathCardStage { hidden, preview, question, feedback }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NUEVO: Estados del sistema de pausa
+// ═══════════════════════════════════════════════════════════════════════════
+enum PauseState {
+  none, // Juego activo, sin menús
+  paused, // Menú de pausa visible
+  exitConfirmation, // Diálogo de confirmación de salida
 }
 
 class ClasificatonState {
@@ -35,14 +47,21 @@ class ClasificatonState {
   final int mathIndex;
   final int mathCorrect;
 
-  /// Nuevo estado de la tarjeta
   final MathCardStage mathStage;
+
+  final int? selectedAnswerIndex;
+  final bool? isAnswerCorrect;
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // NUEVO: Estado de pausa (reemplaza isPaused + showExitConfirmation)
+  // ═══════════════════════════════════════════════════════════════════════
+  final PauseState pauseState;
 
   final WasteType? lastTarget;
   final bool? lastAnswerCorrect;
 
   const ClasificatonState({
-    this.phase = ClasificatonPhase.intro,
+    this.phase = ClasificatonPhase.levels,
     this.levelFlow = LevelFlow.cover,
     this.currentWaste,
 
@@ -65,6 +84,12 @@ class ClasificatonState {
     this.mathCorrect = 0,
 
     this.mathStage = MathCardStage.preview,
+
+    this.selectedAnswerIndex,
+    this.isAnswerCorrect,
+
+    // Nuevo campo con default
+    this.pauseState = PauseState.none,
 
     this.lastTarget,
     this.lastAnswerCorrect,
@@ -99,6 +124,12 @@ class ClasificatonState {
 
     MathCardStage? mathStage,
 
+    int? selectedAnswerIndex,
+    bool? isAnswerCorrect,
+
+    // Nuevo campo en copyWith
+    PauseState? pauseState,
+
     WasteType? lastTarget,
     bool? lastAnswerCorrect,
   }) {
@@ -126,6 +157,12 @@ class ClasificatonState {
       mathCorrect: mathCorrect ?? this.mathCorrect,
 
       mathStage: mathStage ?? this.mathStage,
+
+      selectedAnswerIndex: selectedAnswerIndex,
+      isAnswerCorrect: isAnswerCorrect,
+
+      // Pasar nuevo campo
+      pauseState: pauseState ?? this.pauseState,
 
       lastTarget: lastTarget ?? this.lastTarget,
       lastAnswerCorrect: lastAnswerCorrect ?? this.lastAnswerCorrect,

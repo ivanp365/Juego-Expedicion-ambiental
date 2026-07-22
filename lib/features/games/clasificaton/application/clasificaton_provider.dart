@@ -3,25 +3,43 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../player/application/player_service.dart';
+import '../data/math_questions_repository.dart';
 import '../data/waste_repository.dart';
 import '../models/clasificaton_state.dart';
 import '../models/waste_item.dart';
 
 class ClasificatonController extends StateNotifier<ClasificatonState> {
-  ClasificatonController() : super(const ClasificatonState());
+  ClasificatonController(this._ref) : super(const ClasificatonState());
+
+  final Ref _ref;
+  PlayerService get _playerService => _ref.read(playerServiceProvider);
 
   static const totalWastes = 33;
   static const totalMathCards = 15;
   final Random _random = Random();
   Timer? _timer;
   List<WasteItem> _wastes = [];
+  List<MathQuestion> _questions = [];
 
   void showLevels() => state = state.copyWith(phase: ClasificatonPhase.levels);
 
   void startLevel(int level) {
     _timer?.cancel();
     _wastes = WasteRepository.getItems()..shuffle(_random);
-    state = ClasificatonState(level: level, phase: ClasificatonPhase.countdown);
+    _questions = level == 1
+        ? MathQuestionsRepository.level1
+        : MathQuestionsRepository.level2;
+
+    state = ClasificatonState(level: level, phase: ClasificatonPhase.cover);
+  }
+
+  void startCountdown() {
+    state = state.copyWith(phase: ClasificatonPhase.countdown);
+  }
+
+  void restartLevel() {
+    startLevel(state.level);
   }
 
   void startSorting() {
@@ -30,6 +48,7 @@ class ClasificatonController extends StateNotifier<ClasificatonState> {
       currentWaste: _wastes.first,
     );
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (state.pauseState != PauseState.none) return;
       if (state.secondsLeft <= 1) {
         _finishSorting();
       } else {
@@ -39,9 +58,9 @@ class ClasificatonController extends StateNotifier<ClasificatonState> {
   }
 
   void validateAnswer(WasteType selectedType) {
-    if (state.phase != ClasificatonPhase.sorting) {
-      return;
-    }
+    if (state.phase != ClasificatonPhase.sorting) return;
+    if (state.pauseState != PauseState.none) return;
+
     final isCorrect = state.currentWaste!.type == selectedType;
     final combo = isCorrect ? state.combo + 1 : 0;
     final multiplier = combo >= 4
@@ -52,6 +71,7 @@ class ClasificatonController extends StateNotifier<ClasificatonState> {
         ? 2
         : 1;
     final index = state.currentIndex + 1;
+
     state = state.copyWith(
       score: state.score + (isCorrect ? 10 * multiplier : 0),
       correct: state.correct + (isCorrect ? 1 : 0),
@@ -62,6 +82,7 @@ class ClasificatonController extends StateNotifier<ClasificatonState> {
       lastTarget: selectedType,
       lastAnswerCorrect: isCorrect,
     );
+
     if (index >= totalWastes || state.lives == 0) {
       _finishSorting();
     } else {
@@ -101,25 +122,88 @@ class ClasificatonController extends StateNotifier<ClasificatonState> {
 
   void answerMath(int option) {
     if (state.phase != ClasificatonPhase.math) return;
-    if (state.mathStage != MathCardStage.question) {
-      return;
-    }
-    final correct = option == state.mathIndex % 4;
-    final next = state.mathIndex + 1;
+    if (state.mathStage != MathCardStage.question) return;
+    if (state.pauseState != PauseState.none) return;
+
+    final question = _questions[state.mathIndex];
+    final correct = option == question.correctIndex;
+
     state = state.copyWith(
       mathScore: state.mathScore + (correct ? 20 : 0),
       mathCorrect: state.mathCorrect + (correct ? 1 : 0),
-      mathIndex: next,
-      phase: next >= totalMathCards
-          ? ClasificatonPhase.results
-          : ClasificatonPhase.math,
-      mathStage: next >= totalMathCards
-          ? MathCardStage.hidden
-          : MathCardStage.preview,
+      mathStage: MathCardStage.feedback,
+      selectedAnswerIndex: option,
+      isAnswerCorrect: correct,
+    );
+
+    final delay = correct
+        ? const Duration(milliseconds: 1000)
+        : const Duration(milliseconds: 1500);
+
+    Future<void>.delayed(delay, () {
+      if (!mounted) return;
+      final next = state.mathIndex + 1;
+
+      state = state.copyWith(
+        mathIndex: next,
+        phase: next >= totalMathCards
+            ? ClasificatonPhase.results
+            : ClasificatonPhase.math,
+        mathStage: next >= totalMathCards
+            ? MathCardStage.hidden
+            : MathCardStage.preview,
+        selectedAnswerIndex: null,
+        isAnswerCorrect: null,
+      );
+    });
+  }
+
+  void pauseGame() {
+    _timer?.cancel();
+    state = state.copyWith(pauseState: PauseState.paused);
+  }
+
+  void resumeGame() {
+    if (state.pauseState != PauseState.paused) return;
+    state = state.copyWith(pauseState: PauseState.none);
+
+    if (state.phase == ClasificatonPhase.sorting) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (state.pauseState != PauseState.none) return;
+        if (state.secondsLeft <= 1) {
+          _finishSorting();
+        } else {
+          state = state.copyWith(secondsLeft: state.secondsLeft - 1);
+        }
+      });
+    }
+  }
+
+  void showExitConfirmation() {
+    state = state.copyWith(pauseState: PauseState.exitConfirmation);
+  }
+
+  void hideExitConfirmation() {
+    state = state.copyWith(pauseState: PauseState.paused);
+  }
+
+  void confirmExit() {
+    _timer?.cancel();
+    reset();
+  }
+
+  Future<void> awardCompletion() async {
+    await _playerService.awardClasificatonCompletion(
+      level: state.level,
+      score: state.totalScore,
+      correctAnswers: state.correct,
+      mathCorrect: state.mathCorrect,
+      secondsLeft: state.secondsLeft,
     );
   }
 
   void replay() => startLevel(state.level);
+
   void reset() {
     _timer?.cancel();
     state = const ClasificatonState();
@@ -134,5 +218,5 @@ class ClasificatonController extends StateNotifier<ClasificatonState> {
 
 final clasificatonProvider =
     StateNotifierProvider<ClasificatonController, ClasificatonState>(
-      (ref) => ClasificatonController(),
+      (ref) => ClasificatonController(ref),
     );

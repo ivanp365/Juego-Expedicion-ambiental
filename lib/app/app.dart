@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-
 import '../core/theme/app_theme.dart';
-import 'router.dart';
+import 'router.dart'; // ← nuevo import (mismo folder: lib/app/router.dart)
 
 class ExpedicionAmbientalApp extends StatelessWidget {
   const ExpedicionAmbientalApp({super.key});
@@ -11,8 +10,8 @@ class ExpedicionAmbientalApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'Expedición Ambiental',
       debugShowCheckedModeBanner: false,
-      routerConfig: appRouter,
-      theme: AppTheme.light,
+      theme: AppTheme.darkTheme,
+      routerConfig: appRouter, // ← viene de router.dart
     );
   }
 }

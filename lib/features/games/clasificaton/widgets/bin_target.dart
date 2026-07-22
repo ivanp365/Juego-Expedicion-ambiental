@@ -31,71 +31,87 @@ class BinTarget extends StatelessWidget {
         HapticFeedback.heavyImpact();
         onAccept(details.data);
       },
-      builder: (context, candidate, _) => AnimatedContainer(
-        duration: const Duration(milliseconds: 240),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: success
-              ? LinearGradient(
-                  colors: [
-                    const Color(0xffB9F6CA),
-                    const Color(0xff84E89C),
-                  ],
-                )
-              : failure
-                  ? LinearGradient(
-                      colors: [
-                        const Color(0xffFFCDD2),
-                        const Color(0xffE57373),
-                      ],
-                    )
-                  : LinearGradient(
-                      colors: [
-                        Colors.white.withValues(alpha: 0.95),
-                        Colors.white.withValues(alpha: 0.85),
-                      ],
-                    ),
-          border: Border.all(
-            color: candidate.isNotEmpty ? binColor : binColor.withValues(alpha: 0.6),
-            width: candidate.isNotEmpty ? 3 : 2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: (success ? Colors.green : failure ? Colors.red : binColor)
-                  .withValues(alpha: success || failure ? 0.5 : 0.2),
-              blurRadius: success || failure ? 28 : candidate.isNotEmpty ? 16 : 8,
-              spreadRadius: success ? 4 : failure ? 2 : 0,
-              offset: Offset(0, success || failure ? 2 : 4),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(12),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Background gradient overlay
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      binColor.withValues(alpha: 0.08),
-                      binColor.withValues(alpha: 0.04),
-                    ],
-                  ),
+      builder: (context, candidate, _) {
+        final isDraggingOver = candidate.isNotEmpty;
+
+        return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              // ═══════════════════════════════════════════════════════════════
+              // ═══════════════════════════════════════════════════════════════
+              padding: EdgeInsets.zero,
+              decoration: BoxDecoration(
+                // Sin color de fondo, sin gradiente, sin tarjeta
+                color: Colors.transparent,
+                // Borde SOLO cuando se arrastra encima, o en feedback
+                border: Border.all(
+                  color: success
+                      ? Colors.green
+                      : failure
+                      ? Colors.red
+                      : isDraggingOver
+                      ? binColor
+                      : Colors.transparent, // ← Invisible por defecto
+                  width: isDraggingOver || success || failure ? 2.5 : 0,
                 ),
+                borderRadius: BorderRadius.circular(20),
+                // ═══════════════════════════════════════════════════════════════
+                // SIN BOXSHADOW: Elimina el halo que parece "fondo gris"
+                // ═══════════════════════════════════════════════════════════════
+                // Si quieres un efecto sutil SOLO al drag, usa esto:
+                boxShadow: isDraggingOver
+                    ? [
+                        BoxShadow(
+                          color: binColor.withValues(alpha: 0.25),
+                          blurRadius: 16,
+                          spreadRadius: 2,
+                        ),
+                      ]
+                    : [],
               ),
-            ),
-            SafeImage(assetPath: bin.image, fit: BoxFit.contain),
-          ],
-        ),
-      )
-          .animate(target: success || failure ? 1 : 0)
-          .scale(end: success ? const Offset(1.08, 1.08) : const Offset(1, 1))
-          .shake(hz: failure ? 6.0 : 0.0),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // ═══════════════════════════════════════════════════════════════
+                  // ═══════════════════════════════════════════════════════════════
+                  SafeImage(
+                    assetPath: bin.image,
+                    fit: BoxFit.contain, // Mantiene proporción de la PNG
+                  ),
+                  // Indicador de éxito/fraceso superpuesto
+                  if (success || failure)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: (success ? Colors.green : Colors.red)
+                              .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Icon(
+                          success
+                              ? Icons.check_circle_rounded
+                              : Icons.cancel_rounded,
+                          color: success ? Colors.green : Colors.red,
+                          size: 48,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            )
+            .animate(
+              target: success
+                  ? 1
+                  : failure
+                  ? 1
+                  : 0,
+            )
+            .scale(
+              end: success ? const Offset(1.06, 1.06) : const Offset(1, 1),
+              curve: Curves.easeOutBack,
+            )
+            .shake(hz: failure ? 5.0 : 0.0);
+      },
     );
   }
 
@@ -106,4 +122,3 @@ class BinTarget extends StatelessWidget {
     WasteType.hazardous => const Color(0xffEF4444),
   };
 }
-

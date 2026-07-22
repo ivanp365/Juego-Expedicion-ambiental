@@ -8,6 +8,7 @@ class AnimatedXPBar extends StatefulWidget {
   final Color endColor;
   final String label;
   final Duration animationDuration;
+  final bool compact; // ← NUEVO: modo sin labels
 
   const AnimatedXPBar({
     super.key,
@@ -16,6 +17,7 @@ class AnimatedXPBar extends StatefulWidget {
     this.endColor = const Color(0xff4ADE80),
     this.label = 'PROGRESO',
     this.animationDuration = const Duration(milliseconds: 800),
+    this.compact = false, // ← Default false para backward compatibility
   });
 
   @override
@@ -34,9 +36,10 @@ class _AnimatedXPBarState extends State<AnimatedXPBar>
       duration: widget.animationDuration,
       vsync: this,
     );
-    _animation = Tween<double>(begin: 0.0, end: widget.progress).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _animation = Tween<double>(
+      begin: 0.0,
+      end: widget.progress,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
     _controller.forward();
   }
 
@@ -44,9 +47,10 @@ class _AnimatedXPBarState extends State<AnimatedXPBar>
   void didUpdateWidget(AnimatedXPBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.progress != widget.progress) {
-      _animation = Tween<double>(begin: _animation.value, end: widget.progress).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-      );
+      _animation = Tween<double>(begin: _animation.value, end: widget.progress)
+          .animate(
+            CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+          );
       _controller.forward(from: 0);
     }
   }
@@ -59,6 +63,72 @@ class _AnimatedXPBarState extends State<AnimatedXPBar>
 
   @override
   Widget build(BuildContext context) {
+    // Modo compacto: solo la barra, sin labels
+    if (widget.compact) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: 6, // ← Barra delgada
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withValues(alpha: 0.15),
+                Colors.white.withValues(alpha: 0.08),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.1),
+                        Colors.white.withValues(alpha: 0.05),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              AnimatedBuilder(
+                animation: _animation,
+                builder: (context, child) => Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: _animation.value,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [widget.startColor, widget.endColor],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: widget.endColor.withValues(alpha: 0.5),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ).animate().fadeIn(duration: 300.ms);
+    }
+
+    // Modo completo: con labels (original)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -91,7 +161,6 @@ class _AnimatedXPBarState extends State<AnimatedXPBar>
             ),
             child: Stack(
               children: [
-                // Shimmer effect background
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
@@ -104,7 +173,6 @@ class _AnimatedXPBarState extends State<AnimatedXPBar>
                     ),
                   ),
                 ),
-                // Animated fill
                 AnimatedBuilder(
                   animation: _animation,
                   builder: (context, child) => Align(
@@ -116,10 +184,7 @@ class _AnimatedXPBarState extends State<AnimatedXPBar>
                           gradient: LinearGradient(
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
-                            colors: [
-                              widget.startColor,
-                              widget.endColor,
-                            ],
+                            colors: [widget.startColor, widget.endColor],
                           ),
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
